@@ -1,0 +1,41 @@
+[project]
+name = "amplifier-module-context-skills"
+version = "0.1.0"
+description = "Context manager with progressive skills loading"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Microsoft MADE:Explorations Team" },
+]
+dependencies = [
+    "amplifier-core",
+    "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points."amplifier.modules"]
+context-skills = "amplifier_module_context_skills:mount"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+amplifier-core = { path = "../ai_working/amplifier-dev/amplifier-core", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["amplifier_module_context_skills"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.406",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.14.1",
+]

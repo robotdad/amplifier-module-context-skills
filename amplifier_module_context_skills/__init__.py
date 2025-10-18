@@ -1,0 +1,164 @@
+"""
+Amplifier context manager with progressive skills loading.
+Provides automatic skills discovery and metadata injection.
+"""
+
+import logging
+from pathlib import Path
+from typing import Any
+
+from amplifier_module_context_skills.discovery import SkillMetadata
+from amplifier_module_context_skills.discovery import discover_skills
+
+logger = logging.getLogger(__name__)
+
+
+async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
+    """
+    Mount the skills-aware context manager.
+
+    Args:
+        coordinator: Module coordinator
+        config: Context configuration
+
+    Returns:
+        SkillsContext instance
+    """
+    config = config or {}
+
+    # Determine base context to wrap
+    base_context_name = config.get("base_context", "context-simple")
+
+    # Load base context via coordinator
+    base_context = coordinator.get("context")
+    if base_context is None:
+        # If no context mounted yet, we need to mount the base first
+        # Import and mount the base context module
+        from importlib.metadata import entry_points
+
+        context_eps = entry_points(group="amplifier.modules")
+
+        base_mount_fn = None
+        for ep in context_eps:
+            if ep.name == base_context_name:
+                base_mount_fn = ep.load()
+                break
+
+        if base_mount_fn is None:
+            raise ValueError(f"Base context '{base_context_name}' not found in entry points")
+
+        # Mount base context
+        await base_mount_fn(coordinator, config)
+        base_context = coordinator.get("context")
+
+    # Create skills wrapper around base context
+    skills_dir = Path(config.get("skills_dir", ".amplifier/skills"))
+    auto_inject = config.get("auto_inject_metadata", True)
+
+    context = SkillsContext(base_context, skills_dir, auto_inject)
+    logger.info(f"Mounted SkillsContext wrapping {base_context.__class__.__name__}")
+
+    return context
+
+
+class SkillsContext:
+    """
+    Context manager with progressive skills loading.
+
+    Wraps a base context manager and adds skills awareness.
+    """
+
+    def __init__(self: "SkillsContext", base_context: Any, skills_dir: Path, auto_inject_metadata: bool = True) -> None:
+        """
+        Initialize skills-aware context.
+
+        Args:
+            base_context: Base context manager to wrap
+            skills_dir: Directory containing skills
+            auto_inject_metadata: If True, inject skills metadata into system instruction
+        """
+        self.base = base_context
+        self.skills_dir = skills_dir
+        self.auto_inject_metadata = auto_inject_metadata
+
+        # Discover skills
+        self.skills: dict[str, SkillMetadata] = discover_skills(skills_dir)
+        self.loaded_skills: set[str] = set()
+
+        logger.info(f"Initialized SkillsContext with {len(self.skills)} skills from {skills_dir}")
+
+    def get_skills_metadata(self: "SkillsContext") -> str:
+        """
+        Generate formatted skills metadata for system instruction.
+
+        Returns:
+            Formatted string listing available skills
+        """
+        if not self.skills:
+            return ""
+
+        lines = ["## Available Skills", ""]
+        for name, metadata in sorted(self.skills.items()):
+            lines.append(f"**{name}**: {metadata.description}")
+
+        lines.extend(["", "To access full skill content, use the load_skill tool.", ""])
+
+        return "\n".join(lines)
+
+    def get_available_skills(self: "SkillsContext") -> list[str]:
+        """
+        Get list of available skill names.
+
+        Returns:
+            List of skill names
+        """
+        return list(self.skills.keys())
+
+    def is_skill_loaded(self: "SkillsContext", skill_name: str) -> bool:
+        """
+        Check if a skill is already loaded.
+
+        Args:
+            skill_name: Name of skill to check
+
+        Returns:
+            True if skill is loaded
+        """
+        return skill_name in self.loaded_skills
+
+    def mark_skill_loaded(self: "SkillsContext", skill_name: str) -> None:
+        """
+        Mark a skill as loaded.
+
+        Args:
+            skill_name: Name of skill that was loaded
+        """
+        self.loaded_skills.add(skill_name)
+        logger.debug(f"Marked skill as loaded: {skill_name}")
+
+    # Context protocol implementation - delegate to base
+    async def add_message(self: "SkillsContext", message: dict[str, Any]) -> None:
+        """Add a message to the context."""
+        await self.base.add_message(message)
+
+    async def get_messages(self: "SkillsContext") -> list[dict[str, Any]]:
+        """Get all messages in the context."""
+        return await self.base.get_messages()
+
+    async def should_compact(self: "SkillsContext") -> bool:
+        """Check if context should be compacted."""
+        return await self.base.should_compact()
+
+    async def compact(self: "SkillsContext") -> None:
+        """Compact the context to reduce size."""
+        await self.base.compact()
+
+    async def clear(self: "SkillsContext") -> None:
+        """Clear all messages."""
+        await self.base.clear()
+        self.loaded_skills.clear()
+
+    async def set_messages(self: "SkillsContext", messages: list[dict[str, Any]]) -> None:
+        """Set messages (for session resume)."""
+        if hasattr(self.base, "set_messages"):
+            await self.base.set_messages(messages)
