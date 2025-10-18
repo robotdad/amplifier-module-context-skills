@@ -24,7 +24,7 @@ context-skills = "amplifier_module_context_skills:mount"
 package = true
 
 [tool.uv.sources]
-amplifier-core = { path = "../ai_working/amplifier-dev/amplifier-core", editable = true }
+amplifier-core = { git = "https://github.com/microsoft/amplifier-core", branch = "main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["amplifier_module_context_skills"]
