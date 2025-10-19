@@ -56,6 +56,8 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
     # Create skills wrapper around base context
     auto_inject = config.get("auto_inject_metadata", True)
 
+    logger.info(f"Mounting SkillsContext with config: {config}")
+
     # Support both single and multi-source configuration
     if "skills_dirs" in config:
         skills_dirs = config["skills_dirs"]
@@ -67,8 +69,9 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
     else:
         skills_dirs = get_default_skills_dirs()
 
+    logger.info(f"Using skills directories: {skills_dirs}")
     context = SkillsContext(base_context, skills_dirs, auto_inject)
-    logger.info(f"Mounted SkillsContext wrapping {base_context.__class__.__name__}")
+    logger.info(f"Mounted SkillsContext wrapping {base_context.__class__.__name__} with {len(context.skills)} skills")
 
     # Emit discovery event
     await coordinator.hooks.emit(
