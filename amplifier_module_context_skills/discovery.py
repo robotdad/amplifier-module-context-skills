@@ -109,8 +109,8 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
         logger.warning(f"Skills path is not a directory: {skills_dir}")
         return skills
 
-    # Scan for SKILL.md files
-    for skill_file in skills_dir.glob("*/SKILL.md"):
+    # Scan for SKILL.md files (recursive)
+    for skill_file in skills_dir.glob("**/SKILL.md"):
         try:
             # Parse frontmatter
             frontmatter = parse_skill_frontmatter(skill_file)
