@@ -4,6 +4,7 @@ Shared utilities for finding and parsing SKILL.md files.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ class SkillMetadata:
     name: str
     description: str
     path: Path
+    source: str  # Which directory/source this came from
     version: str | None = None
     license: str | None = None
     metadata: dict[str, Any] | None = None
@@ -129,6 +131,7 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                 name=name,
                 description=description,
                 path=skill_file,
+                source=str(skills_dir),
                 version=frontmatter.get("version"),
                 license=frontmatter.get("license"),
                 metadata=frontmatter.get("metadata"),
@@ -143,3 +146,71 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
 
     logger.info(f"Discovered {len(skills)} skills in {skills_dir}")
     return skills
+
+
+def discover_skills_multi_source(skills_dirs: list[Path] | list[str]) -> dict[str, SkillMetadata]:
+    """
+    Discover skills from multiple directories with priority.
+
+    First-match-wins: If same skill name appears in multiple directories,
+    the one from the earlier directory (higher priority) is used.
+
+    Args:
+        skills_dirs: List of directories to search, in priority order (highest first)
+
+    Returns:
+        Dictionary mapping skill names to metadata
+    """
+    all_skills: dict[str, SkillMetadata] = {}
+    sources_checked = []
+
+    for skills_dir in skills_dirs:
+        dir_path = Path(skills_dir).expanduser().resolve()
+        sources_checked.append(str(dir_path))
+
+        if not dir_path.exists():
+            logger.debug(f"Skills directory does not exist: {dir_path}")
+            continue
+
+        # Discover from this directory
+        dir_skills = discover_skills(dir_path)
+
+        # Merge with priority (first-match-wins)
+        for name, metadata in dir_skills.items():
+            if name not in all_skills:
+                all_skills[name] = metadata
+                logger.debug(f"Added skill '{name}' from {dir_path}")
+            else:
+                logger.debug(
+                    f"Skipping duplicate skill '{name}' from {dir_path} (already have from {all_skills[name].source})"
+                )
+
+    logger.info(f"Discovered {len(all_skills)} skills from {len(sources_checked)} sources")
+    return all_skills
+
+
+def get_default_skills_dirs() -> list[Path]:
+    """
+    Get default skills directory search paths with priority.
+
+    Priority order:
+    1. AMPLIFIER_SKILLS_DIR environment variable
+    2. .amplifier/skills/ (workspace)
+    3. ~/.amplifier/skills/ (user)
+
+    Returns:
+        List of paths to check, in priority order
+    """
+    dirs = []
+
+    # 1. Environment variable override (highest priority)
+    if env_dir := os.getenv("AMPLIFIER_SKILLS_DIR"):
+        dirs.append(Path(env_dir))
+
+    # 2. Workspace directory
+    dirs.append(Path(".amplifier/skills"))
+
+    # 3. User directory
+    dirs.append(Path("~/.amplifier/skills").expanduser())
+
+    return dirs

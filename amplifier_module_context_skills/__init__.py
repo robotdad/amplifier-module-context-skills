@@ -9,6 +9,8 @@ from typing import Any
 
 from amplifier_module_context_skills.discovery import SkillMetadata
 from amplifier_module_context_skills.discovery import discover_skills
+from amplifier_module_context_skills.discovery import discover_skills_multi_source
+from amplifier_module_context_skills.discovery import get_default_skills_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +54,31 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
         base_context = coordinator.get("context")
 
     # Create skills wrapper around base context
-    skills_dir = Path(config.get("skills_dir", ".amplifier/skills"))
     auto_inject = config.get("auto_inject_metadata", True)
 
-    context = SkillsContext(base_context, skills_dir, auto_inject)
+    # Support both single and multi-source configuration
+    if "skills_dirs" in config:
+        skills_dirs = config["skills_dirs"]
+        if isinstance(skills_dirs, str):
+            skills_dirs = [skills_dirs]
+        skills_dirs = [Path(d) for d in skills_dirs]
+    elif "skills_dir" in config:
+        skills_dirs = [Path(config["skills_dir"])]
+    else:
+        skills_dirs = get_default_skills_dirs()
+
+    context = SkillsContext(base_context, skills_dirs, auto_inject)
     logger.info(f"Mounted SkillsContext wrapping {base_context.__class__.__name__}")
+
+    # Emit discovery event
+    await coordinator.hooks.emit(
+        "skills:discovered",
+        {
+            "skill_count": len(context.skills),
+            "skill_names": list(context.skills.keys()),
+            "sources": [str(d) for d in skills_dirs],
+        },
+    )
 
     return context
 
@@ -68,24 +90,28 @@ class SkillsContext:
     Wraps a base context manager and adds skills awareness.
     """
 
-    def __init__(self: "SkillsContext", base_context: Any, skills_dir: Path, auto_inject_metadata: bool = True) -> None:
+    def __init__(
+        self: "SkillsContext", base_context: Any, skills_dirs: list[Path], auto_inject_metadata: bool = True
+    ) -> None:
         """
         Initialize skills-aware context.
 
         Args:
             base_context: Base context manager to wrap
-            skills_dir: Directory containing skills
+            skills_dirs: List of directories containing skills (priority order)
             auto_inject_metadata: If True, inject skills metadata into system instruction
         """
         self.base = base_context
-        self.skills_dir = skills_dir
+        self.skills_dirs = skills_dirs
         self.auto_inject_metadata = auto_inject_metadata
 
-        # Discover skills
-        self.skills: dict[str, SkillMetadata] = discover_skills(skills_dir)
+        # Discover skills from all sources
+        self.skills: dict[str, SkillMetadata] = discover_skills_multi_source(skills_dirs)
         self.loaded_skills: set[str] = set()
+        self.max_loaded_skills = 5  # Hard limit to prevent token runaway
+        self.warn_threshold = 3  # Warn when approaching limit
 
-        logger.info(f"Initialized SkillsContext with {len(self.skills)} skills from {skills_dir}")
+        logger.info(f"Initialized SkillsContext with {len(self.skills)} skills from {len(skills_dirs)} sources")
 
     def get_skills_metadata(self: "SkillsContext") -> str:
         """
@@ -126,6 +152,29 @@ class SkillsContext:
         """
         return skill_name in self.loaded_skills
 
+    def can_load_skill(self: "SkillsContext") -> tuple[bool, str | None]:
+        """
+        Check if it's safe to load another skill.
+
+        Returns:
+            Tuple of (can_load, warning_message)
+        """
+        loaded_count = len(self.loaded_skills)
+
+        if loaded_count >= self.max_loaded_skills:
+            return (
+                False,
+                f"Maximum {self.max_loaded_skills} skills loaded. Consider clearing context or being more selective.",
+            )
+
+        if loaded_count >= self.warn_threshold:
+            return (
+                True,
+                f"Warning: {loaded_count} skills already loaded. Approaching limit of {self.max_loaded_skills}.",
+            )
+
+        return (True, None)
+
     def mark_skill_loaded(self: "SkillsContext", skill_name: str) -> None:
         """
         Mark a skill as loaded.
@@ -134,7 +183,19 @@ class SkillsContext:
             skill_name: Name of skill that was loaded
         """
         self.loaded_skills.add(skill_name)
-        logger.debug(f"Marked skill as loaded: {skill_name}")
+        loaded_count = len(self.loaded_skills)
+
+        logger.debug(f"Marked skill as loaded: {skill_name} ({loaded_count}/{self.max_loaded_skills})")
+
+        # Warn when approaching limit
+        if loaded_count == self.warn_threshold:
+            logger.warning(
+                f"Skills context: {loaded_count} skills loaded. Approaching limit of {self.max_loaded_skills}."
+            )
+        elif loaded_count >= self.max_loaded_skills:
+            logger.warning(
+                f"Skills context: Maximum {self.max_loaded_skills} skills loaded. Consider clearing context."
+            )
 
     # Context protocol implementation - delegate to base
     async def add_message(self: "SkillsContext", message: dict[str, Any]) -> None:

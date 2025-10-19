@@ -44,7 +44,7 @@ async def test_skills_context_initialization():
         pytest.skip("Fixtures directory not found")
 
     base = MockBaseContext()
-    context = SkillsContext(base, fixtures_dir, auto_inject_metadata=False)
+    context = SkillsContext(base, [fixtures_dir], auto_inject_metadata=False)
 
     assert len(context.skills) >= 1
     assert len(context.loaded_skills) == 0
@@ -59,7 +59,7 @@ async def test_get_skills_metadata():
         pytest.skip("Fixtures directory not found")
 
     base = MockBaseContext()
-    context = SkillsContext(base, fixtures_dir, auto_inject_metadata=False)
+    context = SkillsContext(base, [fixtures_dir], auto_inject_metadata=False)
 
     metadata = context.get_skills_metadata()
 
@@ -76,7 +76,7 @@ async def test_get_available_skills():
         pytest.skip("Fixtures directory not found")
 
     base = MockBaseContext()
-    context = SkillsContext(base, fixtures_dir, auto_inject_metadata=False)
+    context = SkillsContext(base, [fixtures_dir], auto_inject_metadata=False)
 
     skills = context.get_available_skills()
 
@@ -88,7 +88,7 @@ async def test_get_available_skills():
 async def test_skill_loaded_tracking():
     """Test tracking which skills are loaded."""
     base = MockBaseContext()
-    context = SkillsContext(base, Path("/nonexistent"), auto_inject_metadata=False)
+    context = SkillsContext(base, [Path("/nonexistent")], auto_inject_metadata=False)
 
     assert not context.is_skill_loaded("test-skill")
 
@@ -101,7 +101,7 @@ async def test_skill_loaded_tracking():
 async def test_context_delegation():
     """Test that context methods delegate to base."""
     base = MockBaseContext()
-    context = SkillsContext(base, Path("/nonexistent"), auto_inject_metadata=False)
+    context = SkillsContext(base, [Path("/nonexistent")], auto_inject_metadata=False)
 
     # Test add_message
     await context.add_message({"role": "user", "content": "test"})
@@ -122,7 +122,7 @@ async def test_context_delegation():
 async def test_empty_skills_directory():
     """Test with no skills available."""
     base = MockBaseContext()
-    context = SkillsContext(base, Path("/nonexistent"), auto_inject_metadata=False)
+    context = SkillsContext(base, [Path("/nonexistent")], auto_inject_metadata=False)
 
     assert len(context.skills) == 0
     assert context.get_skills_metadata() == ""

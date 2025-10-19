@@ -5,24 +5,13 @@ requires-python = ">=3.11"
 [[package]]
 name = "amplifier-core"
 version = "1.0.0"
-source = { editable = "../ai_working/amplifier-dev/amplifier-core" }
+source = { git = "https://github.com/microsoft/amplifier-core?branch=main#beb5bb71e4a396077363ed58dab5e0462ac68cac" }
 dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "tomli" },
     { name = "typing-extensions" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.0" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "tomli", specifier = ">=2.0" },
-    { name = "typing-extensions", specifier = ">=4.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.4.2" }]
 
 [[package]]
 name = "amplifier-module-context-skills"
@@ -43,7 +32,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amplifier-core", editable = "../ai_working/amplifier-dev/amplifier-core" },
+    { name = "amplifier-core", git = "https://github.com/microsoft/amplifier-core?branch=main" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
 
