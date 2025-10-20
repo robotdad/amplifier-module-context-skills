@@ -2,6 +2,12 @@
 
 Context manager with progressive skills loading and metadata injection.
 
+## What Are Skills?
+
+Skills are **folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks** (see [Anthropic Skills](https://github.com/anthropics/skills)).
+
+This module brings Anthropic Skills support to Amplifier's context layer, enabling automatic discovery and metadata injection with progressive disclosure.
+
 ## Prerequisites
 
 - **Python 3.11+**
@@ -39,14 +45,49 @@ Extends context management with automatic skills discovery and metadata injectio
 
 ## Configuration
 
+### Single Directory
+
 ```yaml
 session:
-  context: context-skills
-  config:
-    base_context: context-simple      # Which context to wrap
-    skills_dir: .amplifier/skills     # Where to find skills
-    auto_inject_metadata: true        # Add metadata to system instruction
+  context:
+    module: context-skills
+    config:
+      base_context: context-simple
+      skills_dir: .amplifier/skills  # Default location
+      auto_inject_metadata: true
 ```
+
+### Multiple Directories (Recommended)
+
+```yaml
+session:
+  context:
+    module: context-skills
+    config:
+      base_context: context-simple
+      skills_dirs:  # Plural - multiple sources
+        - ~/anthropic-skills  # Cloned from github.com/anthropics/skills
+        - .amplifier/skills   # Project-specific skills
+      auto_inject_metadata: true
+```
+
+### Using Anthropic Skills
+
+```bash
+# Clone Anthropic's skills repository
+git clone https://github.com/anthropics/skills ~/anthropic-skills
+
+# Configure in your profile
+session:
+  context:
+    module: context-skills
+    config:
+      skills_dirs:
+        - ~/anthropic-skills
+        - .amplifier/skills
+```
+
+All skills from both directories are discovered and made available.
 
 ## How It Works
 
@@ -82,10 +123,19 @@ Works seamlessly with `amplifier-module-tool-skills`:
 
 ```yaml
 session:
-  context: context-skills  # Provides discovery
+  context:
+    module: context-skills
+    config:
+      skills_dirs:
+        - ~/anthropic-skills  # Anthropic's skills
+        - .amplifier/skills   # Your skills
 
 tools:
-  - module: tool-skills    # Provides loading
+  - module: tool-skills
+    config:
+      skills_dirs:  # Same directories
+        - ~/anthropic-skills
+        - .amplifier/skills
 ```
 
 **Complete workflow:**
