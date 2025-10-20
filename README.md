@@ -4,7 +4,7 @@ Context manager with progressive skills loading and metadata injection.
 
 ## What Are Skills?
 
-Skills are **folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks** (see [Anthropic Skills](https://github.com/anthropics/skills)).
+Skills are **folders of instructions, scripts, and resources that agents load dynamically to improve performance on specialized tasks** (see [Anthropic Skills](https://github.com/anthropics/skills)).
 
 This module brings Anthropic Skills support to Amplifier's context layer, enabling automatic discovery and metadata injection with progressive disclosure.
 
