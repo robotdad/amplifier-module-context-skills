@@ -58,20 +58,27 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
 
     logger.info(f"Mounting SkillsContext with config: {config}")
 
-    # Support both single and multi-source configuration
+    # Read skills directories from config
     if "skills_dirs" in config:
         skills_dirs = config["skills_dirs"]
         if isinstance(skills_dirs, str):
             skills_dirs = [skills_dirs]
-        skills_dirs = [Path(d) for d in skills_dirs]
+        skills_dirs = [Path(d).expanduser() for d in skills_dirs]
     elif "skills_dir" in config:
-        skills_dirs = [Path(config["skills_dir"])]
+        skills_dirs = [Path(config["skills_dir"]).expanduser()]
     else:
         skills_dirs = get_default_skills_dirs()
 
     logger.info(f"Using skills directories: {skills_dirs}")
+
+    logger.info(f"Using skills directories: {skills_dirs}")
     context = SkillsContext(base_context, skills_dirs, auto_inject)
     logger.info(f"Mounted SkillsContext wrapping {base_context.__class__.__name__} with {len(context.skills)} skills")
+
+    # Register capabilities for tool-skills to use
+    coordinator.register_capability("skills.registry", context.skills)
+    coordinator.register_capability("skills.directories", skills_dirs)
+    logger.info(f"Registered skills capabilities: {len(context.skills)} skills from {len(skills_dirs)} directories")
 
     # Emit discovery event
     await coordinator.hooks.emit(

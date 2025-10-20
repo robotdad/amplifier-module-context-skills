@@ -8,6 +8,8 @@ Skills are **folders of instructions, scripts, and resources that agents load dy
 
 This module brings Anthropic Skills support to Amplifier's context layer, enabling automatic discovery and metadata injection with progressive disclosure.
 
+**Note:** This module is designed to work with `amplifier-module-tool-skills`. See [amplifier-module-tool-skills/examples/](https://github.com/robotdad/amplifier-module-tool-skills/tree/main/examples) for complete working profiles.
+
 ## Prerequisites
 
 - **Python 3.11+**
@@ -45,49 +47,23 @@ Extends context management with automatic skills discovery and metadata injectio
 
 ## Configuration
 
-### Single Directory
-
 ```yaml
 session:
   context:
     module: context-skills
     config:
       base_context: context-simple
-      skills_dir: .amplifier/skills  # Default location
-      auto_inject_metadata: true
-```
-
-### Multiple Directories (Recommended)
-
-```yaml
-session:
-  context:
-    module: context-skills
-    config:
-      base_context: context-simple
-      skills_dirs:  # Plural - multiple sources
+      skills_dirs:  # Configure skills directories here
         - ~/anthropic-skills  # Cloned from github.com/anthropics/skills
         - .amplifier/skills   # Project-specific skills
       auto_inject_metadata: true
 ```
 
-### Using Anthropic Skills
+**Default:** If not configured, uses `.amplifier/skills`
 
-```bash
-# Clone Anthropic's skills repository
-git clone https://github.com/anthropics/skills ~/anthropic-skills
+**Capability sharing:** Registers `skills.registry` and `skills.directories` capabilities for tool-skills to use (no duplicate configuration needed).
 
-# Configure in your profile
-session:
-  context:
-    module: context-skills
-    config:
-      skills_dirs:
-        - ~/anthropic-skills
-        - .amplifier/skills
-```
-
-All skills from both directories are discovered and made available.
+See [complete example profile](https://github.com/robotdad/amplifier-module-tool-skills/blob/main/examples/skills-example.md) for working configuration.
 
 ## How It Works
 
@@ -119,24 +95,24 @@ Total: 2100 tokens vs 6000 tokens (60% savings)
 
 ## Integration with tool-skills
 
-Works seamlessly with `amplifier-module-tool-skills`:
+Designed to work with `amplifier-module-tool-skills` via capability registry:
 
 ```yaml
 session:
   context:
     module: context-skills
     config:
-      skills_dirs:
-        - ~/anthropic-skills  # Anthropic's skills
-        - .amplifier/skills   # Your skills
-
-tools:
-  - module: tool-skills
-    config:
-      skills_dirs:  # Same directories
+      skills_dirs:  # Single configuration
         - ~/anthropic-skills
         - .amplifier/skills
+
+tools:
+  - module: tool-skills  # No config - reads from context capability
 ```
+
+**How it works:** Context registers `skills.registry` and `skills.directories` capabilities. Tool reads from these capabilities to avoid duplicate discovery.
+
+See [complete example](https://github.com/robotdad/amplifier-module-tool-skills/blob/main/examples/skills-example.md).
 
 **Complete workflow:**
 
