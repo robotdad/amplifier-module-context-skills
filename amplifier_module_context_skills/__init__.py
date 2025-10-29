@@ -38,7 +38,7 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
     if base_context is None:
         # If no context mounted yet, we need to mount the base first
         # Use the coordinator's loader to load base context (supports git sources)
-        loader = coordinator.loader()
+        loader = coordinator.loader
 
         logger.info(f"Loading base context '{base_context_name}' with source: {base_context_source}")
 
