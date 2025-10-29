@@ -30,28 +30,36 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> Any:
 
     # Determine base context to wrap
     base_context_name = config.get("base_context", "context-simple")
+    base_context_source = config.get("base_context_source")
+    base_context_config = config.get("base_context_config", {})
 
     # Load base context via coordinator
     base_context = coordinator.get("context")
     if base_context is None:
         # If no context mounted yet, we need to mount the base first
-        # Import and mount the base context module
-        from importlib.metadata import entry_points
+        # Use the coordinator's loader to load base context (supports git sources)
+        loader = coordinator.loader()
 
-        context_eps = entry_points(group="amplifier.modules")
+        logger.info(f"Loading base context '{base_context_name}' with source: {base_context_source}")
 
-        base_mount_fn = None
-        for ep in context_eps:
-            if ep.name == base_context_name:
-                base_mount_fn = ep.load()
-                break
+        try:
+            # Load base context using loader (handles git sources properly)
+            base_mount_fn = await loader.load(
+                base_context_name, base_context_config, profile_source=base_context_source
+            )
 
-        if base_mount_fn is None:
-            raise ValueError(f"Base context '{base_context_name}' not found in entry points")
+            if base_mount_fn is None:
+                raise ValueError(f"Base context '{base_context_name}' not found")
 
-        # Mount base context
-        await base_mount_fn(coordinator, config)
-        base_context = coordinator.get("context")
+            # Mount base context
+            cleanup = await base_mount_fn(coordinator)
+            if cleanup:
+                coordinator.register_cleanup(cleanup)
+
+            base_context = coordinator.get("context")
+
+        except Exception as e:
+            raise ValueError(f"Failed to load base context '{base_context_name}': {e}") from e
 
     # Create skills wrapper around base context
     auto_inject = config.get("auto_inject_metadata", True)
