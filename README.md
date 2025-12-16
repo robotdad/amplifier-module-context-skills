@@ -1,5 +1,12 @@
 # Amplifier Skills Context Module
 
+> [!WARNING]
+> **DEPRECATED - No Longer Maintained**
+> 
+> This module is deprecated and no longer being developed. The [amplifier-module-tool-skills](https://github.com/robotdad/amplifier-module-tool-skills) works perfectly well standalone without needing context-level integration.
+> 
+> **Use `amplifier-module-tool-skills` instead** - it provides all the skills functionality you need with simpler setup and better agent experience.
+
 Context manager with progressive skills loading and metadata injection.
 
 ## What Are Skills?
